@@ -144,12 +144,14 @@ class WorkflowSchedule(Schedule):
             next_run_time=None,
             recurrence_seconds=None,
             overrun_policy=OverrunPolicy.SKIP,
-            parser_params=PinballConfig.PARSER_PARAMS,
+            parser_params=None,
             workflow=None,
             emails=None,
             max_running_instances=None):
         Schedule.__init__(self, next_run_time, recurrence_seconds,
                           overrun_policy)
+        if parser_params is None:
+            parser_params = PinballConfig.get_parser_params(workflow)
         self.parser_params = annotate_parser_caller(
             parser_params,
             ParserCaller.SCHEDULE)

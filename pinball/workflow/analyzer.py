@@ -75,7 +75,7 @@ class Analyzer(object):
             Analyzer initialized with tokens read from the config.
         """
         analyzer = Analyzer(workflow, None)
-        analyzer._read_tokens_from_parser_params()
+        analyzer._read_tokens_from_parser_params(workflow)
         return analyzer
 
     @staticmethod
@@ -134,11 +134,11 @@ class Analyzer(object):
             name_prefix=name.get_instance_prefix())
         self._filter_job_tokens(tokens)
 
-    def _read_tokens_from_parser_params(self):
+    def _read_tokens_from_parser_params(self,workflow):
         """Read archived job tokens from the PinballConfig.PARSER_PARAMS.
         """
         config_parser = load_parser_with_caller(PinballConfig.PARSER,
-                                                PinballConfig.PARSER_PARAMS,
+                                                PinballConfig.get_parser_params(workflow),
                                                 ParserCaller.ANALYZER)
         tokens = config_parser.get_workflow_tokens(self._workflow)
         self._filter_job_tokens(tokens)

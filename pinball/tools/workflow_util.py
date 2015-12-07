@@ -93,12 +93,12 @@ class Start(Command):
                                    'running!' % self._workflow)
 
         config_parser = load_parser_with_caller(PinballConfig.PARSER,
-                                                PinballConfig.PARSER_PARAMS,
+                                                PinballConfig.get_parser_params(self._workflow),
                                                 ParserCaller.WORKFLOW_UTIL)
         workflow_tokens = config_parser.get_workflow_tokens(self._workflow)
         if not workflow_tokens:
             return 'workflow %s not found in %s\n' % (
-                self._workflow, str(PinballConfig.PARSER_PARAMS))
+                self._workflow, str(PinballConfig.get_parser_params(self._workflow)))
         request = ModifyRequest()
         request.updates = workflow_tokens
         assert request.updates
@@ -516,7 +516,7 @@ class Poison(Command):
         self._jobs = options.jobs.split(',')
         if (not (self._workflow and self._instance and self._jobs) and
                 not (self._workflow and self._jobs and
-                     PinballConfig.PARSER_PARAMS)):
+                     PinballConfig.get_parser_params(self._workflow))):
             raise CommandException('retry command takes name of workflow, '
                                    'instance, and a list of jobs or workflow, '
                                    'parser_param config, and a list of jobs')
@@ -565,7 +565,7 @@ class Poison(Command):
             analyzer = Analyzer.from_parser_params(self._workflow)
             if not analyzer.get_tokens():
                 return 'workflow %s not found in %s\n' % (
-                    self._workflow, str(PinballConfig.PARSER_PARAMS))
+                    self._workflow, str(PinballConfig.get_parser_params(self._workflow)))
         analyzer.clear_job_histories()
         analyzer.poison(self._jobs)
         new_instance = get_unique_workflow_instance()
@@ -587,7 +587,7 @@ class Poison(Command):
                 self._workflow, self._instance, self._jobs)
         else:
             message = 'poison workflow %s roots %s parser_params config %s' % (
-                self._workflow, self._jobs, str(PinballConfig.PARSER_PARAMS))
+                self._workflow, self._jobs, str(PinballConfig.get_parser_params(self._workflow)))
         if self._force or confirm(message):
             active = False
             if self._instance:
@@ -767,14 +767,14 @@ class ReSchedule(ModifySchedule):
 
     def execute(self, client, store):
         config_parser = load_parser_with_caller(PinballConfig.PARSER,
-                                                PinballConfig.PARSER_PARAMS,
+                                                PinballConfig.get_parser_params(self._workflow),
                                                 ParserCaller.WORKFLOW_UTIL)
         workflow_names = config_parser.get_workflow_names()
         if (self._workflow and not self._workflow in workflow_names):
             return 'workflow %s not found\n' % self._workflow
         workflows = ([self._workflow] if self._workflow else workflow_names)
         if not workflows:
-            return 'no workflows found in %s' % str(PinballConfig.PARSER_PARAMS)
+            return 'no workflows found in %s' % str(PinballConfig.get_parser_params(self._workflow))
         message = 'reschedule workflows %s' % workflows
         output = ''
         if self._force or confirm(message):
@@ -854,7 +854,7 @@ class Reload(Command):
         self._instance = options.instance
         self._jobs = options.jobs.split(',') if options.jobs else None
         if (not self._workflow or not self._instance or
-                not PinballConfig.PARSER_PARAMS):
+                not PinballConfig.get_parser_params(self._workflow)):
             raise CommandException('reload command requires workflow name, '
                                    'instance, and parser_params config')
 
@@ -953,7 +953,7 @@ class Reload(Command):
         missing_job_names = job_names.difference(new_job_names)
         if missing_job_names:
             self._output = 'jobs %s not found in workflow %s defined in %s' % (
-                missing_job_names, self._workflow, str(PinballConfig.PARSER_PARAMS))
+                missing_job_names, self._workflow, str(PinballConfig.get_parser_params(self._workflow)))
             return False
         for job_token in job_tokens:
             name = Name.from_job_token_name(job_token.name)
@@ -964,12 +964,12 @@ class Reload(Command):
 
     def execute(self, client, store):
         config_parser = load_parser_with_caller(PinballConfig.PARSER,
-                                                PinballConfig.PARSER_PARAMS,
+                                                PinballConfig.get_parser_params(self._workflow),
                                                 ParserCaller.WORKFLOW_UTIL)
         workflow_names = config_parser.get_workflow_names()
         if self._workflow not in workflow_names:
             return 'workflow %s not found in %s\n' % (
-                self._workflow, str(PinballConfig.PARSER_PARAMS))
+                self._workflow, str(PinballConfig.get_parser_params(self._workflow)))
         if self._jobs:
             job_tokens = self._own_selected_job_tokens(client)
         else:
@@ -1273,7 +1273,7 @@ def main():
                         help='command name')
     options = parser.parse_args(sys.argv[1:])
 
-    PinballConfig.parse(options.config_file)
+    PinballConfig.parse(options.config_file, options.workflow)
 
     if hasattr(PinballConfig, 'MASTER_NAME') and PinballConfig.MASTER_NAME:
         master_name(PinballConfig.MASTER_NAME)

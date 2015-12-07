@@ -11,12 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import cPickle
 
 """Pinball configuration object"""
 
 import socket
 import yaml
-
+import MySQLdb
+import traceback
+import json
 
 __author__ = 'Mao Ye'
 __copyright__ = 'Copyright 2015, Pinterest, Inc.'
@@ -157,7 +160,37 @@ class PinballConfig(object):
 
     # Application configuration.
     PARSER = 'pinball_ext.workflow.parser.PyWorkflowParser'
+    PARSER_CONFIG_LOCATION = "/tmp/test"
     PARSER_PARAMS = {}
+    @staticmethod
+    def get_parser_params(workflow_name):
+        print "get_parser_param called with workflow : ", workflow_name
+        '''host = PinballConfig.DATABASES['default']['HOST']
+        port = PinballConfig.DATABASES['default']['PORT']
+        username = PinballConfig.DATABASES['default']['USER']
+        passwd = PinballConfig.DATABASES['default']['PASSWORD']
+        db_name = PinballConfig.DATABASES['default']['NAME']
+        db = MySQLdb.connect(host,username,passwd, db_name, int(port) )
+        cursor = db.cursor()
+        param = {}
+        sql = "SELECT param_config FROM workflow_config where workflow_id = '%s'" % (workflow_name)
+        print "sql command:", sql
+        try:
+            cursor.execute(sql)
+            results = cursor.fetchall()
+            for row in results:
+                #param = json.loads(row[0])
+                param = cPickle.loads(row[0])
+                print "nishant param:", param
+        except:
+            traceback.print_exc()
+            print "Error: unable to fecth data"
+            
+        db.close()
+        '''
+        file_location = PinballConfig.PARSER_CONFIG_LOCATION+"/"+workflow_name
+        param = cPickle.load( open( file_location, "rb" ) )
+        return param
 
     # Configuration for the default email in pinball.
     # We use it as default sender of email service right now.
@@ -177,7 +210,7 @@ class PinballConfig(object):
     SMTP_SSL  = False
 
     @staticmethod
-    def parse(config_file):
+    def parse(config_file, workflow = None):
         # Assume the config file is "yaml" file
         yaml_file = None
         try:
@@ -190,13 +223,44 @@ class PinballConfig(object):
                 yaml_file.close()
 
         for key, value in config_data.iteritems():
-            PinballConfig.update_config(key.upper(), value)
-        PinballConfig._check_configs()
+            PinballConfig.update_config(key.upper(), value, workflow)
+        PinballConfig._check_configs(workflow)
         PinballConfig._post_process_configs()
-
+    
     @classmethod
-    def update_config(cls_obj, config_name, config_value):
-        setattr(cls_obj, config_name, config_value)
+    def update_workflow_config(cls, workflow_name, param_config):
+        
+        host = PinballConfig.DATABASES['default']['HOST']
+        port = PinballConfig.DATABASES['default']['PORT']
+        username = PinballConfig.DATABASES['default']['USER']
+        passwd = PinballConfig.DATABASES['default']['PASSWORD']
+        db_name = PinballConfig.DATABASES['default']['NAME']
+        db = MySQLdb.connect(host,username,passwd, db_name, int(port) )
+        cursor = db.cursor()
+        param_config_json = json.dumps(param_config)
+        sql = "Insert into workflow_config(workflow_id,param_config) values ('%s','%s') ON DUPLICATE KEY UPDATE  param_config='%s'"% \
+        (workflow_name, param_config_json, param_config_json)
+        try:
+            cursor.execute(sql)
+            db.commit()
+        except:
+            print "Error in write"
+            traceback.print_exc()
+            db.rollback()
+
+        db.close()
+                
+    @classmethod
+    def update_config(cls_obj, config_name, config_value, workflow):
+        print "config_name:",config_name, " configValue:", config_value, " workflow:", workflow
+        
+        if(config_name == "PARSER_PARAMS" and workflow is not None):
+            
+            #Ignore storing parser_params from config. It has to stored previously by the client caller
+            print "Ignoring parser params"
+            #PinballConfig.update_workflow_config(workflow, config_value)
+        else:    
+            setattr(cls_obj, config_name, config_value)
 
     @staticmethod
     def _post_process_configs():
@@ -215,11 +279,12 @@ class PinballConfig(object):
                 + PinballConfig.DEFAULT_MIDDLEWARE_CLASSES[2:]
 
     @staticmethod
-    def _check_configs():
+    def _check_configs(workflow):
         assert (PinballConfig.DEFAULT_EMAIL is not None), \
             'Please specify the default_email!'
-        assert PinballConfig.PARSER_PARAMS, \
-            'Please configure parser_params!'
+        #during server start, no workflow_name is provided ignoring this assert
+        #assert PinballConfig.get_parser_params(workflow), \
+        #'Please configure parser_params!'
         if PinballConfig.AUTHENTICATION_DOMAINS:
             assert (PinballConfig.GOOGLE_CLIENT_ID is not None), \
                 'Please specify the google_client_id!'

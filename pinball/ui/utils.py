@@ -32,7 +32,7 @@ __version__ = '2.0'
 
 def get_workflow_jobs_from_parser(workflow):
     config_parser = load_parser_with_caller(PinballConfig.PARSER,
-                                            PinballConfig.PARSER_PARAMS,
+                                            PinballConfig.get_parser_params(workflow),
                                             ParserCaller.UI)
     tokens = config_parser.get_workflow_tokens(workflow)
     jobs_data = []
